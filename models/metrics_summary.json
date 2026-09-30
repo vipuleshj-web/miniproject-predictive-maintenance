@@ -1,0 +1,99 @@
+{
+    "best_model_name": "RandomForest_Balanced",
+    "all_results": {
+        "RandomForest_Balanced": {
+            "Accuracy": 1.0,
+            "Precision": 1.0,
+            "Recall": 1.0,
+            "F1_Score": 1.0,
+            "ROC_AUC": 1.0,
+            "PR_AUC": 1.0,
+            "Confusion_Matrix": [
+                [
+                    1925,
+                    0
+                ],
+                [
+                    0,
+                    75
+                ]
+            ]
+        },
+        "XGBoost_Weighted": {
+            "Accuracy": 0.9995,
+            "Precision": 1.0,
+            "Recall": 0.9867,
+            "F1_Score": 0.9933,
+            "ROC_AUC": 1.0,
+            "PR_AUC": 1.0,
+            "Confusion_Matrix": [
+                [
+                    1925,
+                    0
+                ],
+                [
+                    1,
+                    74
+                ]
+            ]
+        },
+        "LogisticRegression_Balanced": {
+            "Accuracy": 0.998,
+            "Precision": 0.9494,
+            "Recall": 1.0,
+            "F1_Score": 0.974,
+            "ROC_AUC": 1.0,
+            "PR_AUC": 1.0,
+            "Confusion_Matrix": [
+                [
+                    1921,
+                    4
+                ],
+                [
+                    0,
+                    75
+                ]
+            ]
+        },
+        "XGBoost_SMOTE": {
+            "Accuracy": 1.0,
+            "Precision": 1.0,
+            "Recall": 1.0,
+            "F1_Score": 1.0,
+            "ROC_AUC": 1.0,
+            "PR_AUC": 1.0,
+            "Confusion_Matrix": [
+                [
+                    1925,
+                    0
+                ],
+                [
+                    0,
+                    75
+                ]
+            ]
+        }
+    },
+    "feature_importance": {
+        "Voltage_Deviation": 0.2445,
+        "Power_Factor_Proxy": 0.1887,
+        "Temperature": 0.1696,
+        "Temp_Anomaly": 0.1537,
+        "Vibration_RMS": 0.089,
+        "Voltage": 0.0722,
+        "Vibration_z": 0.0521,
+        "Vibration_x": 0.0234,
+        "Vibration_y": 0.0069
+    },
+    "feature_columns": [
+        "Vibration_x",
+        "Vibration_y",
+        "Vibration_z",
+        "Temperature",
+        "Voltage",
+        "Vibration_RMS",
+        "Voltage_Deviation",
+        "Power_Factor_Proxy",
+        "Temp_Anomaly"
+    ]
+}
