@@ -9,7 +9,7 @@ import seaborn as sns
 
 # Set page layout & configuration
 st.set_page_config(
-    page_title="ESP32 Predictive Maintenance AI Dashboard",
+    page_title="SmartMill ESP32 Predictive Maintenance AI Dashboard",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -47,7 +47,7 @@ st.markdown("""
     }
     
     .metric-val {
-        font-size: 28px;
+        font-size: 26px;
         font-weight: 700;
         color: #38bdf8;
     }
@@ -64,7 +64,7 @@ st.markdown("""
         background-color: #064e3b;
         color: #34d399;
         border: 1px solid #059669;
-        padding: 12px 20px;
+        padding: 14px 20px;
         border-radius: 12px;
         font-size: 20px;
         font-weight: 700;
@@ -75,7 +75,7 @@ st.markdown("""
         background-color: #78350f;
         color: #fbbf24;
         border: 1px solid #d97706;
-        padding: 12px 20px;
+        padding: 14px 20px;
         border-radius: 12px;
         font-size: 20px;
         font-weight: 700;
@@ -86,7 +86,7 @@ st.markdown("""
         background-color: #7f1d1d;
         color: #f87171;
         border: 1px solid #dc2626;
-        padding: 12px 20px;
+        padding: 14px 20px;
         border-radius: 12px;
         font-size: 20px;
         font-weight: 700;
@@ -113,27 +113,25 @@ def load_artifacts():
             
         return best_model, scaler, mode_models, metrics_summary
     except Exception as e:
-        st.error(f"Error loading model artifacts: {str(e)}. Please ensure models are trained first.")
+        st.error(f"Error loading model artifacts: {str(e)}. Please run train_model.py first.")
         return None, None, None, None
 
-def engineer_single_input(vib_x, vib_y, vib_z, temp, voltage):
-    vib_rms = np.sqrt(vib_x**2 + vib_y**2 + vib_z**2)
-    voltage_dev = abs(voltage - 12.0)
-    power_factor = voltage * vib_rms
-    temp_anomaly = temp - 25.0
+def engineer_single_input(temp, vibration, voltage_adc):
+    voltage_volts = round((voltage_adc / 4095.0) * 25.0, 2)
+    voltage_dev = round(abs(voltage_volts - 12.0), 3)
+    temp_anomaly = round(temp - 25.0, 2)
+    temp_excess = max(0.0, temp - 50.0)
+    stress_index = round((vibration * 2.5) + (voltage_dev * 1.5) + (temp_excess * 0.1), 3)
     
     features = pd.DataFrame([{
-        'Vibration_x': vib_x,
-        'Vibration_y': vib_y,
-        'Vibration_z': vib_z,
-        'Temperature': temp,
-        'Voltage': voltage,
-        'Vibration_RMS': vib_rms,
-        'Voltage_Deviation': voltage_dev,
-        'Power_Factor_Proxy': power_factor,
-        'Temp_Anomaly': temp_anomaly
+        'temperature': temp,
+        'vibration': vibration,
+        'voltage': voltage_adc,
+        'voltage_volts': voltage_volts,
+        'voltage_dev': voltage_dev,
+        'temp_anomaly': temp_anomaly,
+        'stress_index': stress_index
     }])
-    
     return features
 
 # Main App Layout
@@ -146,9 +144,9 @@ def main():
     # Header Banner
     st.markdown("""
         <div class="main-header">
-            <h1 style="margin: 0; font-size: 30px; color: #f8fafc;">⚡ ESP32 Predictive Maintenance AI Dashboard</h1>
+            <h1 style="margin: 0; font-size: 28px; color: #f8fafc;">⚡ SmartMill ESP32 Predictive Maintenance AI Dashboard</h1>
             <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 14px;">
-                Real-time sensor telemetry monitoring (ADXL345 Vibration, DS18B20 Temp, Voltage Sensor), failure risk estimation, and root-cause diagnostics.
+                Real-time ESP32 telemetry ingestion (DS18B20 Temp, Digital Vibration, 0-25V Voltage ADC), live failure risk assessment, and root-cause diagnostics.
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -156,123 +154,174 @@ def main():
     # Top Key Metrics Bar
     col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
     
-    best_name = metrics_summary.get('best_model_name', 'RandomForest_Balanced')
+    best_name = metrics_summary.get('best_model_name', 'XGBoost_Weighted')
     best_res = metrics_summary.get('all_results', {}).get(best_name, {})
     
     with col_m1:
-        st.markdown(f'<div class="metric-card"><div class="metric-val">{best_name.split("_")[0]}</div><div class="metric-lbl">Classifier</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-val">{best_name.split("_")[0]}</div><div class="metric-lbl">Active Classifier</div></div>', unsafe_allow_html=True)
     with col_m2:
-        st.markdown(f'<div class="metric-card"><div class="metric-val">{best_res.get("Accuracy", 0)*100:.1f}%</div><div class="metric-lbl">Accuracy</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-val">{best_res.get("Accuracy", 0)*100:.1f}%</div><div class="metric-lbl">Model Accuracy</div></div>', unsafe_allow_html=True)
     with col_m3:
         st.markdown(f'<div class="metric-card"><div class="metric-val">{best_res.get("F1_Score", 0):.3f}</div><div class="metric-lbl">F1-Score</div></div>', unsafe_allow_html=True)
     with col_m4:
         st.markdown(f'<div class="metric-card"><div class="metric-val">{best_res.get("ROC_AUC", 0):.3f}</div><div class="metric-lbl">ROC-AUC</div></div>', unsafe_allow_html=True)
     with col_m5:
-        st.markdown(f'<div class="metric-card"><div class="metric-val">{best_res.get("Recall", 0)*100:.1f}%</div><div class="metric-lbl">Detection Rate</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card"><div class="metric-val">{best_res.get("Recall", 0)*100:.1f}%</div><div class="metric-lbl">Fault Recall</div></div>', unsafe_allow_html=True)
         
     st.write("")
     
     # Navigation Tabs
-    tab1, tab2, tab3 = st.tabs([
-        "🔮 Real-Time Hardware Sensor Predictor", 
-        "📂 Batch CSV Telemetry Inference", 
-        "📊 Model Intelligence & Analytics"
+    tab0, tab1, tab2, tab3 = st.tabs([
+        "📡 Live ESP32 Telemetry Feed",
+        "🎛️ Hardware Telemetry Simulator", 
+        "📂 Batch Telemetry CSV Scoring", 
+        "📊 Model Intelligence & Diagnostics"
     ])
     
-    # --- TAB 1: REAL-TIME PREDICTOR ---
+    # --- TAB 0: LIVE ESP32 TELEMETRY ---
+    with tab0:
+        st.subheader("📡 Live ESP32 Telemetry Monitor")
+        st.caption("Receiving live sensor broadcasts from ESP32 via FastAPI server on `http://<your-ip>:8000/sensor-data`.")
+        
+        telemetry_file = "live_telemetry.json"
+        
+        col_ctrl1, col_ctrl2 = st.columns([1, 4])
+        with col_ctrl1:
+            if st.button("🔄 Refresh Telemetry"):
+                st.rerun()
+                
+        if os.path.exists(telemetry_file):
+            try:
+                with open(telemetry_file, "r") as f:
+                    telemetry_data = json.load(f)
+            except Exception:
+                telemetry_data = []
+        else:
+            telemetry_data = []
+            
+        if telemetry_data:
+            latest = telemetry_data[-1]
+            
+            c_l1, c_l2, c_l3, c_l4 = st.columns(4)
+            c_l1.metric("Latest Temperature", f"{latest.get('temperature', 0):.1f} °C")
+            c_l2.metric("Vibration Trigger", "🚨 ACTIVE (1)" if latest.get('vibration') == 1 else "🟢 NORMAL (0)")
+            c_l3.metric("Voltage Supply", f"{latest.get('voltage_volts', 0):.2f} V", f"ADC: {latest.get('voltage_adc', 0)}")
+            c_l4.metric("Last Updated", latest.get('timestamp', 'N/A'))
+            
+            st.write("")
+            
+            # Health Banner
+            health = latest.get('machine_health', 'NORMAL')
+            risk_pct = latest.get('failure_probability', 0.0) * 100
+            fault = latest.get('detected_fault', 'None')
+            
+            if health == "NORMAL":
+                st.markdown(f'<div class="risk-badge-low">🟢 SYSTEM NORMAL ({risk_pct:.1f}% Failure Probability)<br><span style="font-size:14px;font-weight:normal;">No anomalies detected. Machine running within physical specifications.</span></div>', unsafe_allow_html=True)
+            elif health == "WARNING":
+                st.markdown(f'<div class="risk-badge-medium">🟠 ATTENTION REQUIRED ({risk_pct:.1f}% Failure Probability)<br><span style="font-size:14px;font-weight:normal;">Fault Mode Detected: <b>{fault}</b>. Inspection recommended.</span></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="risk-badge-high">🚨 CRITICAL FAULT ({risk_pct:.1f}% Failure Probability)<br><span style="font-size:14px;font-weight:normal;">Severe condition detected: <b>{fault}</b>! Immediate shutdown or maintenance advised.</span></div>', unsafe_allow_html=True)
+                
+            st.write("")
+            st.markdown("### 📜 Recent Telemetry Logs (Last 20 Readings)")
+            df_tel = pd.DataFrame(telemetry_data[-20:]).iloc[::-1]
+            st.dataframe(df_tel, use_container_width=True)
+        else:
+            st.info("💡 Waiting for incoming data from ESP32. Ensure `api_server.py` is running and your ESP32 is powered and connected to Wi-Fi.")
+
+    # --- TAB 1: HARDWARE SIMULATOR ---
     with tab1:
-        st.subheader("ESP32 Sensor Telemetry & Simulation Control")
-        st.caption("Adjust sliders to simulate live ADXL345, DS18B20, and Voltage sensor inputs.")
+        st.subheader("🎛️ Interactive Hardware Sensor Simulator")
+        st.caption("Manually test ML model responses by tweaking DS18B20 temperature, digital vibration, and voltage ADC readings.")
         
         col_left, col_right = st.columns([1, 1], gap="large")
         
-        # Check presets from session state
         preset = st.session_state.get('preset', 'normal')
         
         if preset == 'vibration':
-            def_vx, def_vy, def_vz, def_temp, def_volt = 4.5, 4.0, 6.5, 48.0, 11.9
+            def_temp, def_vib, def_adc = 49.0, 1, 1966
         elif preset == 'heat':
-            def_vx, def_vy, def_vz, def_temp, def_volt = 0.1, -0.05, 1.05, 88.5, 12.1
-        elif preset == 'voltage':
-            def_vx, def_vy, def_vz, def_temp, def_volt = 0.1, 0.0, 1.0, 45.0, 8.2
+            def_temp, def_vib, def_adc = 85.0, 0, 1950
+        elif preset == 'voltage_low':
+            def_temp, def_vib, def_adc = 42.0, 0, 1350
+        elif preset == 'voltage_high':
+            def_temp, def_vib, def_adc = 43.0, 0, 2750
+        elif preset == 'combined':
+            def_temp, def_vib, def_adc = 76.0, 1, 1420
         else:
-            def_vx, def_vy, def_vz, def_temp, def_volt = 0.05, -0.02, 1.0, 42.0, 12.0
+            def_temp, def_vib, def_adc = 42.0, 0, 1966
 
         with col_left:
-            st.markdown("### 🎛️ Live ESP32 Sensor Inputs")
+            st.markdown("### 🎛️ Sensor Inputs")
             
-            st.markdown("#### 1️⃣ ADXL345 3-Axis Accelerometer (Vibration)")
-            col_v1, col_v2, col_v3 = st.columns(3)
-            with col_v1:
-                vib_x = st.slider("Vibration X [g]", -10.0, 10.0, float(def_vx), step=0.1)
-            with col_v2:
-                vib_y = st.slider("Vibration Y [g]", -10.0, 10.0, float(def_vy), step=0.1)
-            with col_v3:
-                vib_z = st.slider("Vibration Z [g]", -10.0, 10.0, float(def_vz), step=0.1)
-                
-            st.markdown("#### 2️⃣ DS18B20 Digital Temperature Sensor")
-            temp = st.slider("Machine Temperature [°C]", 10.0, 110.0, float(def_temp), step=0.5)
+            temp_in = st.slider("1️⃣ DS18B20 Temperature (°C)", 15.0, 110.0, float(def_temp), step=0.5)
             
-            st.markdown("#### 3️⃣ Analog Voltage Sensor Module")
-            voltage = st.slider("Supply Voltage [V DC]", 0.0, 20.0, float(def_volt), step=0.1)
+            vib_toggle = st.selectbox(
+                "2️⃣ Vibration Sensor (Instantaneous Digital Pin 27)",
+                options=[0, 1],
+                index=int(def_vib),
+                format_func=lambda x: "0 - Normal / Quiet (No shock)" if x == 0 else "1 - Shock / Vibration Triggered"
+            )
             
-            # Preset Scenarios
-            st.markdown("#### ⚡ Preset Fault Scenarios")
-            c_p1, c_p2, c_p3, c_p4 = st.columns(4)
+            adc_in = st.slider("3️⃣ Voltage Module Raw 12-bit ADC (Pin 34)", 0, 4095, int(def_adc), step=25)
+            calculated_v = (adc_in / 4095.0) * 25.0
+            st.caption(f"Equivalent Calibrated Voltage: **{calculated_v:.2f} V DC** (Nominal: 12.0V)")
+            
+            st.markdown("#### ⚡ Quick Fault Scenarios")
+            c_p1, c_p2, c_p3, c_p4, c_p5 = st.columns(5)
             if c_p1.button("🟢 Normal"):
                 st.session_state['preset'] = 'normal'
                 st.rerun()
-            if c_p2.button("🟠 Bearing Vibration"):
+            if c_p2.button("🟠 Vibration"):
                 st.session_state['preset'] = 'vibration'
                 st.rerun()
-            if c_p3.button("🔴 Overheating"):
+            if c_p3.button("🔴 Overheat"):
                 st.session_state['preset'] = 'heat'
                 st.rerun()
-            if c_p4.button("⚡ Voltage Drop"):
-                st.session_state['preset'] = 'voltage'
+            if c_p4.button("⚡ Voltage Sag"):
+                st.session_state['preset'] = 'voltage_low'
+                st.rerun()
+            if c_p5.button("💥 Combined"):
+                st.session_state['preset'] = 'combined'
                 st.rerun()
 
         with col_right:
-            st.markdown("### 📈 Live Risk Assessment & Diagnostics")
+            st.markdown("### 📈 ML Failure Risk & Diagnostic Assessment")
             
-            input_df = engineer_single_input(vib_x, vib_y, vib_z, temp, voltage)
+            feat_df = engineer_single_input(temp_in, vib_toggle, adc_in)
             
-            scaled_input = scaler.transform(input_df)
-            input_scaled_df = pd.DataFrame(scaled_input, columns=metrics_summary['feature_columns'])
+            scaled_feat = scaler.transform(feat_df[metrics_summary['feature_columns']])
+            scaled_feat_df = pd.DataFrame(scaled_feat, columns=metrics_summary['feature_columns'])
             
-            failure_prob = best_model.predict_proba(input_scaled_df)[0][1]
+            prob = best_model.predict_proba(scaled_feat_df)[0][1]
             
             st.markdown("#### Machinery Health Status:")
-            if failure_prob < 0.25:
-                st.markdown(f'<div class="risk-badge-low">🟢 LOW RISK ({failure_prob*100:.1f}% Failure Probability)<br><span style="font-size:14px;font-weight:normal;">Machinery operating within healthy physical limits.</span></div>', unsafe_allow_html=True)
-            elif failure_prob < 0.60:
-                st.markdown(f'<div class="risk-badge-medium">🟠 ATTENTION REQUIRED ({failure_prob*100:.1f}% Failure Probability)<br><span style="font-size:14px;font-weight:normal;">Elevated risk. Schedule maintenance inspection soon.</span></div>', unsafe_allow_html=True)
+            if prob < 0.25:
+                st.markdown(f'<div class="risk-badge-low">🟢 LOW RISK ({prob*100:.1f}% Failure Probability)<br><span style="font-size:14px;font-weight:normal;">Normal operating state. All sensor values healthy.</span></div>', unsafe_allow_html=True)
+            elif prob < 0.60:
+                st.markdown(f'<div class="risk-badge-medium">🟠 ATTENTION REQUIRED ({prob*100:.1f}% Failure Probability)<br><span style="font-size:14px;font-weight:normal;">Elevated risk. Early sign of wear or parameter drift.</span></div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="risk-badge-high">🚨 CRITICAL RISK ({failure_prob*100:.1f}% Failure Probability)<br><span style="font-size:14px;font-weight:normal;">High probability of breakdown! Immediate intervention recommended.</span></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="risk-badge-high">🚨 CRITICAL RISK ({prob*100:.1f}% Failure Probability)<br><span style="font-size:14px;font-weight:normal;">High probability of breakdown! Immediate intervention needed.</span></div>', unsafe_allow_html=True)
                 
             st.write("")
-            
-            # Display Engineered Physics Features
-            st.markdown("#### 🔬 Calculated Physics Features:")
+            st.markdown("#### 🔬 Physics-Informed Feature Values:")
             c_f1, c_f2, c_f3 = st.columns(3)
-            c_f1.metric("Vibration RMS", f"{input_df['Vibration_RMS'].iloc[0]:.2f} g")
-            c_f2.metric("Voltage Dev", f"{input_df['Voltage_Deviation'].iloc[0]:.2f} V")
-            c_f3.metric("Temp Anomaly", f"{input_df['Temp_Anomaly'].iloc[0]:.1f} °C")
+            c_f1.metric("Calculated Voltage", f"{feat_df['voltage_volts'].iloc[0]:.2f} V")
+            c_f2.metric("Voltage Deviation", f"{feat_df['voltage_dev'].iloc[0]:.2f} V")
+            c_f3.metric("Composite Stress Index", f"{feat_df['stress_index'].iloc[0]:.2f}")
             
-            # Failure Mode Diagnostic Breakdown
-            st.markdown("#### 🔍 Diagnostic Failure Mode Probabilities:")
-            mode_probs = {}
-            for mode, m_clf in mode_models.items():
-                m_prob = m_clf.predict_proba(input_scaled_df)[0][1]
-                mode_probs[mode] = m_prob
-                
+            st.markdown("#### 🔍 Root-Cause Diagnostic Failure Modes:")
             mode_labels = {
                 'VAF': 'Vibration Anomaly (VAF)',
                 'OHF': 'Overheating Fault (OHF)',
-                'VLF': 'Voltage Fault (VLF)',
-                'CSF': 'Combined Stress (CSF)'
+                'VLF': 'Voltage Sag/Surge Fault (VLF)',
+                'CSF': 'Combined Stress Failure (CSF)'
             }
             
+            mode_probs = {}
+            for mode, m_clf in mode_models.items():
+                mode_probs[mode] = m_clf.predict_proba(scaled_feat_df)[0][1]
+                
             mode_df = pd.DataFrame({
                 'Failure Mode': [mode_labels.get(m, m) for m in mode_models.keys()],
                 'Probability': [mode_probs[m] for m in mode_models.keys()]
@@ -282,13 +331,13 @@ def main():
             fig.patch.set_facecolor('#1e293b')
             ax.set_facecolor('#1e293b')
             
-            bars = ax.barh(mode_df['Failure Mode'], mode_df['Probability']*100, color='#3b82f6')
+            bars = ax.barh(mode_df['Failure Mode'], mode_df['Probability']*100, color='#38bdf8')
             top_idx = mode_df['Probability'].argmax()
-            if mode_df['Probability'].iloc[top_idx] > 0.3:
+            if mode_df['Probability'].iloc[top_idx] > 0.35:
                 bars[top_idx].set_color('#ef4444')
                 
             ax.set_xlim(0, 100)
-            ax.set_xlabel("Probability (%)", color='#94a3b8')
+            ax.set_xlabel("Confidence (%)", color='#94a3b8')
             ax.tick_params(colors='#f8fafc', labelsize=9)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
@@ -298,18 +347,18 @@ def main():
 
     # --- TAB 2: BATCH CSV INFERENCE ---
     with tab2:
-        st.subheader("📂 Batch Telemetry CSV Prediction")
-        st.markdown("Upload a CSV file containing machine sensor readings (`Vibration_x`, `Vibration_y`, `Vibration_z`, `Temperature`, `Voltage`) to run automated batch risk scoring.")
+        st.subheader("📂 Batch Telemetry CSV Scoring")
+        st.markdown("Upload a CSV file containing machine sensor columns (`temperature`, `vibration`, `voltage`) to run automated batch risk evaluation.")
         
-        uploaded_file = st.file_uploader("Upload CSV Sensor File", type=["csv"])
+        uploaded_file = st.file_uploader("Upload CSV Telemetry File", type=["csv"])
         
         if uploaded_file is not None:
             df_upload = pd.read_csv(uploaded_file)
-            st.write(f"Loaded **{len(df_upload)}** rows. Data sample:")
+            st.write(f"Loaded **{len(df_upload)}** records. Preview:")
             st.dataframe(df_upload.head(5), use_container_width=True)
             
-            if st.button("🚀 Run Batch Failure Risk Prediction"):
-                with st.spinner("Processing features and scoring models..."):
+            if st.button("🚀 Run Batch Predictive Scoring"):
+                with st.spinner("Scoring dataset..."):
                     from data_preprocessing import engineer_features, FEATURE_COLUMNS
                     df_proc = engineer_features(df_upload)
                     
@@ -327,38 +376,37 @@ def main():
                         labels=['LOW RISK', 'ATTENTION', 'CRITICAL']
                     )
                     
-                    total_machines = len(df_upload)
-                    high_risk_count = (df_upload['Predicted_Failure'] == 1).sum()
+                    total = len(df_upload)
+                    failures = (df_upload['Predicted_Failure'] == 1).sum()
                     
                     st.success("Batch Prediction Complete!")
-                    
                     c_b1, c_b2, c_b3 = st.columns(3)
-                    c_b1.metric("Total Samples Analyzed", total_machines)
-                    c_b2.metric("Predicted Failures", high_risk_count)
-                    c_b3.metric("Failure Rate", f"{(high_risk_count/total_machines)*100:.2f}%")
+                    c_b1.metric("Total Records", total)
+                    c_b2.metric("Predicted Failures", failures)
+                    c_b3.metric("Failure Rate", f"{(failures/total)*100:.2f}%")
                     
-                    st.markdown("### ⚠️ Critical Maintenance Alerts")
-                    critical_df = df_upload[df_upload['Risk_Category'] == 'CRITICAL'].sort_values(by='Failure_Probability', ascending=False)
-                    st.dataframe(critical_df, use_container_width=True)
+                    st.markdown("### ⚠️ Flagged Critical Samples")
+                    crit = df_upload[df_upload['Risk_Category'] == 'CRITICAL'].sort_values(by='Failure_Probability', ascending=False)
+                    st.dataframe(crit, use_container_width=True)
                     
                     csv_data = df_upload.to_csv(index=False).encode('utf-8')
                     st.download_button(
-                        label="📥 Download Full Predictions CSV",
+                        label="📥 Download Scored CSV",
                         data=csv_data,
                         file_name="esp32_predictive_maintenance_predictions.csv",
                         mime="text/csv"
                     )
         else:
-            st.info("Tip: You can upload [`predictive_maintenance.csv`](file:///d:/miniproject/predictive_maintenance.csv) for batch testing!")
+            st.info("Tip: You can upload [`predictive_maintenance.csv`](file:///d:/miniproject/predictive_maintenance.csv) for immediate testing!")
 
     # --- TAB 3: MODEL INTELLIGENCE ---
     with tab3:
-        st.subheader("📊 Model Performance & Sensor Feature Importance")
+        st.subheader("📊 Model Performance & Feature Importance")
         
         col_m_left, col_m_right = st.columns(2)
         
         with col_m_left:
-            st.markdown("### 🔑 Key Physical Drivers (Feature Importance)")
+            st.markdown("### 🔑 Key Physical Feature Importances")
             feat_imp = metrics_summary.get('feature_importance', {})
             if feat_imp:
                 imp_df = pd.DataFrame({
@@ -380,16 +428,10 @@ def main():
                 st.pyplot(fig_imp)
                 
         with col_m_right:
-            st.markdown("### 🏆 Model Metrics Comparison")
+            st.markdown("### 🏆 Model Comparison Metrics")
             all_res = metrics_summary.get('all_results', {})
             res_df = pd.DataFrame(all_res).T[['Accuracy', 'Precision', 'Recall', 'F1_Score', 'ROC_AUC', 'PR_AUC']]
             st.dataframe(res_df.style.highlight_max(axis=0, color='#064e3b'), use_container_width=True)
-            
-            st.markdown("""
-                #### 💡 Model Insights:
-                - **RandomForest_Balanced** achieved top **F1-Score (1.000)** and **ROC-AUC (1.000)**.
-                - Physical engineered features (**Voltage_Deviation**, **Power_Factor_Proxy**, **Vibration_RMS**) serve as primary diagnostic triggers.
-            """)
 
 if __name__ == "__main__":
     main()

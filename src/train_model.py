@@ -14,7 +14,7 @@ from sklearn.metrics import (
 from data_preprocessing import prepare_train_test_data, FEATURE_COLUMNS, FAILURE_MODES
 
 def train_and_evaluate_models():
-    print("Preparing training and test datasets...")
+    print("Preparing ESP32 training and test datasets...")
     data = prepare_train_test_data(filepath="predictive_maintenance.csv")
     
     X_train = data['X_train']
@@ -26,15 +26,15 @@ def train_and_evaluate_models():
     # Calculate scale_pos_weight for XGBoost
     neg_count = (y_train == 0).sum()
     pos_count = (y_train == 1).sum()
-    scale_pos_weight = neg_count / pos_count
+    scale_pos_weight = neg_count / pos_count if pos_count > 0 else 1.0
     
     # Define models dictionary
     models = {
         'RandomForest_Balanced': RandomForestClassifier(
-            n_estimators=150, max_depth=12, class_weight='balanced', random_state=42
+            n_estimators=150, max_depth=10, class_weight='balanced', random_state=42
         ),
         'XGBoost_Weighted': XGBClassifier(
-            n_estimators=150, max_depth=6, learning_rate=0.05,
+            n_estimators=150, max_depth=5, learning_rate=0.05,
             scale_pos_weight=scale_pos_weight, random_state=42, eval_metric='logloss'
         ),
         'LogisticRegression_Balanced': LogisticRegression(
@@ -48,7 +48,7 @@ def train_and_evaluate_models():
     X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
     
     models['XGBoost_SMOTE'] = XGBClassifier(
-        n_estimators=150, max_depth=6, learning_rate=0.05,
+        n_estimators=150, max_depth=5, learning_rate=0.05,
         random_state=42, eval_metric='logloss'
     )
     
@@ -95,7 +95,7 @@ def train_and_evaluate_models():
     print(f"\n[BEST MODEL SELECTED]: {best_model_name} (F1-Score: {results[best_model_name]['F1_Score']})")
     
     # Train failure mode specific classifiers for diagnostics
-    print("\nTraining diagnostic classifiers for individual failure modes (TWF, HDF, PWF, OSF, RNF)...")
+    print("\nTraining diagnostic classifiers for individual failure modes (VAF, OHF, VLF, CSF)...")
     df_processed = data['df_processed']
     mode_models = {}
     
@@ -106,7 +106,7 @@ def train_and_evaluate_models():
         spw = (neg_m / pos_m) if pos_m > 0 else 1.0
         
         clf_mode = XGBClassifier(
-            n_estimators=100, max_depth=5, learning_rate=0.05,
+            n_estimators=100, max_depth=4, learning_rate=0.05,
             scale_pos_weight=spw, random_state=42, eval_metric='logloss'
         )
         clf_mode.fit(X_train, y_mode)
@@ -117,7 +117,6 @@ def train_and_evaluate_models():
     if hasattr(best_model, 'feature_importances_'):
         importances = best_model.feature_importances_
         feature_importance = {col: round(float(imp), 4) for col, imp in zip(FEATURE_COLUMNS, importances)}
-        # Sort by importance descending
         feature_importance = dict(sorted(feature_importance.items(), key=lambda item: item[1], reverse=True))
 
     # Create models directory if it doesn't exist

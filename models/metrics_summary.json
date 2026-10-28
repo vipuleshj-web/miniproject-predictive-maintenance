@@ -1,99 +1,95 @@
 {
-    "best_model_name": "RandomForest_Balanced",
+    "best_model_name": "XGBoost_Weighted",
     "all_results": {
         "RandomForest_Balanced": {
-            "Accuracy": 1.0,
-            "Precision": 1.0,
-            "Recall": 1.0,
-            "F1_Score": 1.0,
-            "ROC_AUC": 1.0,
-            "PR_AUC": 1.0,
+            "Accuracy": 0.9867,
+            "Precision": 0.9667,
+            "Recall": 0.9667,
+            "F1_Score": 0.9667,
+            "ROC_AUC": 0.9975,
+            "PR_AUC": 0.9888,
             "Confusion_Matrix": [
                 [
-                    1925,
-                    0
+                    119,
+                    1
                 ],
                 [
-                    0,
-                    75
+                    1,
+                    29
                 ]
             ]
         },
         "XGBoost_Weighted": {
-            "Accuracy": 0.9995,
-            "Precision": 1.0,
-            "Recall": 0.9867,
-            "F1_Score": 0.9933,
-            "ROC_AUC": 1.0,
-            "PR_AUC": 1.0,
+            "Accuracy": 0.9933,
+            "Precision": 0.9677,
+            "Recall": 1.0,
+            "F1_Score": 0.9836,
+            "ROC_AUC": 0.9994,
+            "PR_AUC": 0.9978,
             "Confusion_Matrix": [
                 [
-                    1925,
-                    0
+                    119,
+                    1
                 ],
                 [
-                    1,
-                    74
+                    0,
+                    30
                 ]
             ]
         },
         "LogisticRegression_Balanced": {
-            "Accuracy": 0.998,
-            "Precision": 0.9494,
+            "Accuracy": 0.9867,
+            "Precision": 0.9375,
             "Recall": 1.0,
-            "F1_Score": 0.974,
-            "ROC_AUC": 1.0,
-            "PR_AUC": 1.0,
+            "F1_Score": 0.9677,
+            "ROC_AUC": 0.9997,
+            "PR_AUC": 0.9989,
             "Confusion_Matrix": [
                 [
-                    1921,
-                    4
+                    118,
+                    2
                 ],
                 [
                     0,
-                    75
+                    30
                 ]
             ]
         },
         "XGBoost_SMOTE": {
-            "Accuracy": 1.0,
-            "Precision": 1.0,
+            "Accuracy": 0.9933,
+            "Precision": 0.9677,
             "Recall": 1.0,
-            "F1_Score": 1.0,
-            "ROC_AUC": 1.0,
-            "PR_AUC": 1.0,
+            "F1_Score": 0.9836,
+            "ROC_AUC": 0.9989,
+            "PR_AUC": 0.9955,
             "Confusion_Matrix": [
                 [
-                    1925,
-                    0
+                    119,
+                    1
                 ],
                 [
                     0,
-                    75
+                    30
                 ]
             ]
         }
     },
     "feature_importance": {
-        "Voltage_Deviation": 0.2445,
-        "Power_Factor_Proxy": 0.1887,
-        "Temperature": 0.1696,
-        "Temp_Anomaly": 0.1537,
-        "Vibration_RMS": 0.089,
-        "Voltage": 0.0722,
-        "Vibration_z": 0.0521,
-        "Vibration_x": 0.0234,
-        "Vibration_y": 0.0069
+        "stress_index": 0.9127,
+        "temperature": 0.0566,
+        "voltage_dev": 0.0143,
+        "voltage": 0.0097,
+        "vibration": 0.0067,
+        "voltage_volts": 0.0,
+        "temp_anomaly": 0.0
     },
     "feature_columns": [
-        "Vibration_x",
-        "Vibration_y",
-        "Vibration_z",
-        "Temperature",
-        "Voltage",
-        "Vibration_RMS",
-        "Voltage_Deviation",
-        "Power_Factor_Proxy",
-        "Temp_Anomaly"
+        "temperature",
+        "vibration",
+        "voltage",
+        "voltage_volts",
+        "voltage_dev",
+        "temp_anomaly",
+        "stress_index"
     ]
 }

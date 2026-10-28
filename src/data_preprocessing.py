@@ -5,15 +5,13 @@ from sklearn.preprocessing import StandardScaler
 import os
 
 FEATURE_COLUMNS = [
-    'Vibration_x',
-    'Vibration_y',
-    'Vibration_z',
-    'Temperature',
-    'Voltage',
-    'Vibration_RMS',
-    'Voltage_Deviation',
-    'Power_Factor_Proxy',
-    'Temp_Anomaly'
+    'temperature',
+    'vibration',
+    'voltage',
+    'voltage_volts',
+    'voltage_dev',
+    'temp_anomaly',
+    'stress_index'
 ]
 
 TARGET_COLUMN = 'Machine_Failure'
@@ -28,27 +26,48 @@ def load_data(filepath="predictive_maintenance.csv"):
 
 def engineer_features(df):
     """
-    Perform physics-informed feature engineering for ADXL345, DS18B20, and Voltage Sensor:
-    - Vibration_RMS: sqrt(Vx^2 + Vy^2 + Vz^2) total vibration acceleration vector magnitude
-    - Voltage_Deviation: abs(Voltage - 12.0) deviation from nominal 12V DC power supply
-    - Power_Factor_Proxy: Voltage * Vibration_RMS electromechanical dynamic stress index
-    - Temp_Anomaly: Temperature - 25.0 (rise over 25°C standard ambient)
+    Perform physics-informed feature engineering for ESP32 sensor suite:
+    - temperature: DS18B20 (°C)
+    - vibration: Instantaneous digital read (0 or 1)
+    - voltage: Raw 12-bit ADC (0 - 4095)
+    
+    Engineered Features:
+    - voltage_volts: Derived from 0-25V voltage divider: (ADC / 4095.0) * 25.0
+    - voltage_dev: abs(voltage_volts - 12.0) deviation from nominal 12V DC power
+    - temp_anomaly: temperature - 25.0 (thermal rise above 25°C ambient)
+    - stress_index: composite stress index combining mechanical shock, thermal elevation, and power strain
     """
     df_feat = df.copy()
     
-    # 1. Total Vibration Vector Magnitude (RMS in g units)
-    df_feat['Vibration_RMS'] = np.sqrt(
-        df_feat['Vibration_x']**2 + df_feat['Vibration_y']**2 + df_feat['Vibration_z']**2
+    # Impute missing/null temperature (e.g. if DS18B20 was disconnected)
+    if 'temperature' in df_feat.columns:
+        df_feat['temperature'] = pd.to_numeric(df_feat['temperature'], errors='coerce').fillna(25.0)
+    
+    # Ensure vibration is numeric 0 or 1
+    if 'vibration' in df_feat.columns:
+        df_feat['vibration'] = pd.to_numeric(df_feat['vibration'], errors='coerce').fillna(0).astype(int)
+        
+    # Ensure voltage ADC is numeric
+    if 'voltage' in df_feat.columns:
+        df_feat['voltage'] = pd.to_numeric(df_feat['voltage'], errors='coerce').fillna(1966)
+        
+    # 1. Calibrated voltage in Volts (0-25V scale)
+    if 'voltage_volts' not in df_feat.columns:
+        df_feat['voltage_volts'] = (df_feat['voltage'] / 4095.0) * 25.0
+    df_feat['voltage_volts'] = np.round(df_feat['voltage_volts'], 2)
+    
+    # 2. Voltage Supply Instability Deviation (from 12.0V nominal)
+    df_feat['voltage_dev'] = np.round(np.abs(df_feat['voltage_volts'] - 12.0), 3)
+    
+    # 3. Thermal Stress Delta (rise above 25°C ambient)
+    df_feat['temp_anomaly'] = np.round(df_feat['temperature'] - 25.0, 2)
+    
+    # 4. Composite Electromechanical Stress Index
+    temp_excess = np.maximum(0.0, df_feat['temperature'] - 50.0)
+    df_feat['stress_index'] = np.round(
+        (df_feat['vibration'] * 2.5) + (df_feat['voltage_dev'] * 1.5) + (temp_excess * 0.1),
+        3
     )
-    
-    # 2. Voltage Supply Instability Deviation (from 12.0 V nominal)
-    df_feat['Voltage_Deviation'] = np.abs(df_feat['Voltage'] - 12.0)
-    
-    # 3. Electromechanical Dynamic Stress Index
-    df_feat['Power_Factor_Proxy'] = df_feat['Voltage'] * df_feat['Vibration_RMS']
-    
-    # 4. Thermal Stress Delta (above 25°C ambient)
-    df_feat['Temp_Anomaly'] = df_feat['Temperature'] - 25.0
     
     return df_feat
 
@@ -87,6 +106,7 @@ def prepare_train_test_data(filepath="predictive_maintenance.csv", test_size=0.2
 
 if __name__ == "__main__":
     data_dict = prepare_train_test_data()
-    print("Data loading & preprocessing successful!")
+    print("ESP32 Data loading & feature engineering successful!")
+    print(f"Features: {FEATURE_COLUMNS}")
     print(f"X_train shape: {data_dict['X_train'].shape}")
     print(f"X_test shape: {data_dict['X_test'].shape}")
